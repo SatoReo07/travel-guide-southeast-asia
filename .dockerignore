@@ -1,0 +1,34 @@
+# 依存パッケージ（イメージ内で再インストールする）
+node_modules
+
+# Next.js ビルド成果物（イメージ内でビルドし直す）
+.next
+
+# 開発・ローカル設定
+.env*.local
+.env.development
+
+# バージョン管理
+.git
+.gitignore
+
+# Docker 関連（自己参照を避ける）
+Dockerfile
+.dockerignore
+
+# エディタ・OS メタデータ
+.DS_Store
+*.swp
+*.swo
+.vscode
+.idea
+
+# テスト・Lint レポート
+coverage
+.nyc_output
+
+# ドキュメント
+README.md
+
+# Claude Code メモリ（プロジェクト固有）
+.claude
