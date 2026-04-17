@@ -1,36 +1,140 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 東南アジア旅行ガイド
 
-## Getting Started
+ASEAN 10カ国の観光情報を提供する Web アプリです。
 
-First, run the development server:
+## アーキテクチャ
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+```
+ブラウザ
+  │  HTTP :80
+  ▼
+frontend コンテナ（nginx）
+  │  静的ファイル（HTML / JS / CSS）を配信
+  │  ページ表示時に fetch でデータを取得
+  │  HTTP :3001
+  ▼
+backend コンテナ（Express）
+  │  REST API でJSON を返す
+  ▼
+countries.js（メモリ上の静的データ）
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- **frontend** はビルド済みの静的ファイルを nginx が配信する。React Router でページ遷移はブラウザ側で処理する（SPA）。
+- **backend** は Express の REST API サーバー。国データをメモリに保持し、リクエストに応じて JSON を返す。
+- 2つのコンテナは `docker-compose.yml` で管理し、`docker compose up --build` 一発で両方起動できる。
+- フロントエンドの API 接続先は `VITE_API_BASE` 環境変数で切り替え可能（デフォルト: `http://localhost:3001`）。
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 構成
 
-## Learn More
+```
+travel-guide/
+├── backend/                    # Express API サーバー
+│   ├── data/
+│   │   └── countries.js        # 国データ（10カ国）
+│   ├── server.js               # GET /api/countries, /api/countries/:slug
+│   ├── package.json
+│   ├── Dockerfile
+│   └── .dockerignore
+├── frontend/                   # React + Vite フロントエンド
+│   ├── src/
+│   │   ├── App.tsx             # ルーティング定義
+│   │   ├── components/
+│   │   │   ├── Header.tsx
+│   │   │   └── CountryCard.tsx
+│   │   ├── pages/
+│   │   │   ├── Home.tsx        # 国一覧ページ
+│   │   │   └── CountryDetail.tsx  # 国詳細ページ
+│   │   ├── lib/
+│   │   │   └── api.ts          # fetch 共通化（AbortController 含む）
+│   │   └── types/
+│   │       └── index.ts        # Country / Spot 型定義
+│   ├── nginx.conf              # SPA 用ルーティング設定
+│   ├── Dockerfile              # ビルド → nginx で配信
+│   └── .dockerignore
+├── docker-compose.yml          # 2コンテナを管理
+└── README.md
+```
 
-To learn more about Next.js, take a look at the following resources:
+### ポート
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| サービス | ポート | 説明 |
+|---|---|---|
+| frontend | 80 | React アプリ（nginx） |
+| backend | 3001 | Express API |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### API エンドポイント
 
-## Deploy on Vercel
+| メソッド | パス | 説明 |
+|---|---|---|
+| GET | `/api/countries` | 全10カ国を取得 |
+| GET | `/api/countries/:slug` | 1カ国の詳細を取得 |
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+---
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## ローカル起動
+
+### Docker で起動（推奨）
+
+```bash
+docker compose up --build
+```
+
+ブラウザで http://localhost を開く。
+
+コンテナを止める：
+
+```bash
+docker compose down
+```
+
+### コンテナに入る
+
+```bash
+docker compose exec frontend sh
+docker compose exec backend sh
+```
+
+### ローカル開発（Docker なし）
+
+**バックエンド：**
+
+```bash
+cd backend
+npm install
+npm start
+# → http://localhost:3001
+```
+
+**フロントエンド：**
+
+```bash
+cd frontend
+npm install
+npm run dev
+# → http://localhost:5173
+```
+
+---
+
+## AWS ECR へのプッシュ手順
+
+```bash
+# ログイン
+aws ecr get-login-password --region <region> | \
+  docker login --username AWS --password-stdin <account>.dkr.ecr.<region>.amazonaws.com
+
+# ビルド & タグ付け
+docker build -t travel-guide-backend ./backend
+docker tag travel-guide-backend:latest \
+  <account>.dkr.ecr.<region>.amazonaws.com/travel-guide-backend:latest
+
+docker build -t travel-guide-frontend ./frontend
+docker tag travel-guide-frontend:latest \
+  <account>.dkr.ecr.<region>.amazonaws.com/travel-guide-frontend:latest
+
+# プッシュ
+docker push <account>.dkr.ecr.<region>.amazonaws.com/travel-guide-backend:latest
+docker push <account>.dkr.ecr.<region>.amazonaws.com/travel-guide-frontend:latest
+```

@@ -1,7 +1,18 @@
 services:
-  app:
-    build: .
+  backend:
+    build: ./backend
     ports:
-      - "3000:3000"
+      - "3001:3001"
     environment:
       - NODE_ENV=production
+      - FRONTEND_ORIGIN=http://localhost
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE: http://localhost:3001
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
