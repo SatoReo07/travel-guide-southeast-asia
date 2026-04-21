@@ -1,7 +1,8 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import type { Metadata } from 'next';
-import { countries, getCountryBySlug } from '@/lib/countries';
+import { countries, getCountryBySlug as getCountryBySlugFallback } from '@/lib/countries';
+import { getCountryBySlug } from '@/lib/db';
 
 interface Props {
   params: { slug: string };
@@ -11,8 +12,13 @@ export function generateStaticParams() {
   return countries.map((c) => ({ slug: c.slug }));
 }
 
-export function generateMetadata({ params }: Props): Metadata {
-  const country = getCountryBySlug(params.slug);
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  let country;
+  try {
+    country = await getCountryBySlug(params.slug);
+  } catch {
+    country = getCountryBySlugFallback(params.slug);
+  }
   if (!country) return {};
   return {
     title: `${country.flag} ${country.name} — 東南アジア旅行ガイド`,
@@ -20,8 +26,14 @@ export function generateMetadata({ params }: Props): Metadata {
   };
 }
 
-export default function CountryDetailPage({ params }: Props) {
-  const country = getCountryBySlug(params.slug);
+export default async function CountryDetailPage({ params }: Props) {
+  let country;
+  try {
+    country = await getCountryBySlug(params.slug);
+  } catch (err) {
+    console.error('[DB] getCountryBySlug failed, using fallback:', err);
+    country = getCountryBySlugFallback(params.slug);
+  }
   if (!country) notFound();
 
   return (

@@ -1,18 +1,27 @@
 import Header from '@/components/Header';
 import CountryCard from '@/components/CountryCard';
-import { countries } from '@/lib/countries';
+import { countries as fallback } from '@/lib/countries';
+import { getCountries } from '@/lib/db';
 
-export default function Home() {
+export default async function Home() {
+  let countriesList = fallback;
+  try {
+    const rows = await getCountries();
+    if (rows.length > 0) countriesList = rows;
+  } catch (err) {
+    console.error('[DB] getCountries failed, using fallback:', err);
+  }
+
   return (
     <div>
       <Header />
       <main className="max-w-5xl mx-auto px-4 py-10">
         <p className="text-center text-gray-500 mb-8 text-sm">
-          全 {countries.length} カ国を掲載
+          全 {countriesList.length} カ国を掲載
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {countries.map((country) => (
-            <CountryCard key={country.name} country={country} />
+          {countriesList.map((country) => (
+            <CountryCard key={country.slug} country={country} />
           ))}
         </div>
       </main>
