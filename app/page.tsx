@@ -1,16 +1,11 @@
 import Header from '@/components/Header';
 import CountryCard from '@/components/CountryCard';
-import { countries as fallback } from '@/lib/countries';
 import { getCountries } from '@/lib/db';
 
+export const dynamic = 'force-dynamic';
+
 export default async function Home() {
-  let countriesList = fallback;
-  try {
-    const rows = await getCountries();
-    if (rows.length > 0) countriesList = rows;
-  } catch (err) {
-    console.error('[DB] getCountries failed, using fallback:', err);
-  }
+  const countriesList = await getCountries();
 
   return (
     <div>
